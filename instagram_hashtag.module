@@ -1,0 +1,339 @@
+<?php
+
+/*
+ * @file
+ * Menu hooks and other functions for instagram_hashtag module
+ */
+
+
+/*
+ * Implementation of hook_menu().
+ */
+
+function instagram_hashtag_menu() {
+  $items = array();
+
+  $items['admin/config/services/instagram_hashtag'] = array(
+    'title' => 'Instagram hashtag feed',
+    'description' => 'Configure Instagram hashtag settings & objects',
+    'page callback' => 'drupal_get_form',
+    'type' => MENU_NORMAL_ITEM,
+    'page arguments' => array('instagram_hashtag_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'instagram_hashtag.admin.inc',
+  );
+
+  $items['admin/config/services/instagram_hashtag/settings'] = array(
+    'title' => 'Settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10
+  );
+
+  $items['admin/config/services/instagram_hashtag/view'] = array(
+    'title' => 'View instagram feed',
+    'page callback' => 'drupal_get_form',
+    'type' => MENU_LOCAL_TASK,
+    'page arguments' => array('instagram_hashtag_list_feed_form'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'instagram_hashtag.admin.inc',
+  );
+
+  $items['test'] = array(
+    'title' => 'test',
+    'page callback' => 'instagram_hashtag_test',
+    'type' => MENU_LOCAL_TASK,
+    'page arguments' => array('instagram_hashtag_list_feed_form'),
+    'access arguments' => array('administer site configuration'),
+  );
+
+
+
+  return $items;
+}
+
+function instagram_hashtag_test() {
+  get_hashtags();
+}
+
+function get_hashtags() {
+  $instances = field_info_instances();
+  $instagram_fields = array();
+  $hashtags  = array();
+  foreach ($instances as $entity_type => $entity) {
+    foreach ($entity as $bundle_name => $bundle){
+      if (is_array($bundle) && count($bundle) > 0) {
+        foreach ($bundle as $field_name => $field_info) {
+          $field = field_info_field($field_name);
+          if ($field['type'] == 'instagram_hashtag') {
+            $instagram_fields[$entity_type][$bundle_name][$field_name] = $field_name;
+
+            $query = new EntityFieldQuery();
+            $query->entityCondition('entity_type', $entity_type)
+              ->entityCondition('bundle', $bundle_name)
+              ->propertyCondition('status', 1)
+              ->fieldCondition($field_name, 'hashtag', 'NULL', '!=')
+              ->addMetaData('account', user_load(1)); // Run the query as user 1.
+            $result = $query->execute();
+            if (is_array($result) && count($result) > 0) {
+              foreach($result as $result_entity_type => $array_ids) {
+                $ids = array_keys($array_ids);
+                $items = entity_load($entity_type, $ids);
+                if (is_array($items) && count($items) > 0) {
+                  foreach ($items as $item) {
+                    $hashtag_items = field_get_items($entity_type, $item, $field_name);
+                    if (is_array($hashtag_items) && count($hashtag_items) > 0) {
+                      foreach ($hashtag_items as $hashtag_delta => $hashtag) {
+                        $hashtag_value = strtolower($hashtag['hashtag']);
+                        $hashtags[$hashtag_value] = $hashtag_value;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return $hashtags;
+}
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function instagram_hashtag_cron() { 
+  
+  instagram_hashtag_fetch_feed();
+
+}
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+
+function instagram_hashtag_fetch_feed() {
+  
+  $hashtags = get_hashtags();
+
+  if (is_array($hashtags) && count($hashtags) > 0) {
+    foreach ($hashtags as $hashtag) {
+
+      $result = drupal_http_request('http://instagram.com/tags/' . $hashtag . '/feed/recent.rss');
+
+      //Check HTTP return code
+      if ($result->code) {
+        switch ($result->code) {
+
+          // Valid HTTP Request
+          case 200:
+
+            $xml_object = simplexml_load_string($result->data);
+            $values = array();
+
+            foreach ($xml_object->channel->item as $items) {
+
+              $namespaces = $items->getNameSpaces( true );
+              $media = $items->children( $namespaces['media'] );
+              $media_description = pathinfo($media->content->attributes()->url);
+
+              $result = db_select('instagram_hashtag', 'ih')
+                ->fields('ih', array('media_description'))
+                ->condition('media_description', $media_description)
+                ->range(0, 1)
+                ->execute()
+                ->rowCount();
+
+              if ($result) {
+                continue;
+              }
+
+              $values[] = array(
+                'pub_date' => strtotime($items->pubDate),
+                'media_title' => instagram_hashtag_remove_emoji($media->title),
+                'media_hashtag' => $hashtag,
+                'media_description' => $media_description['filename'],
+                'media_content' => $media->content->attributes()->url,
+                'media_thumbnail' => $media->thumbnail->attributes()->url,
+                'media_credit' => $media->credit,
+
+              );
+
+            }
+
+
+            $query = db_insert('instagram_hashtag')->fields(array('pub_date', 'media_title', 'media_hashtag', 'media_description', 'media_content', 'media_thumbnail', 'media_credit'));
+
+            foreach ($values as $record) {
+              $query->values($record);
+            }
+
+            $query->execute();
+
+//            return TRUE;
+
+          default:
+
+            // Bad web connection
+            $watchdog_message = t('Error code: !code', array('!code' => $result->code)) . "\n";
+            $watchdog_message .= t('Error msg: !error', array('!error' => $result->error)) . "\n";
+            watchdog('instagram_hashtag', $watchdog_message, NULL, WATCHDOG_ERROR);
+
+            // TODO: Set this via drupal_set_message, ideally we could get rid of eventbrite_errors()
+            drupal_set_message($result->error);
+
+//            return false;
+        }
+      }
+    }
+  }
+
+//  if (isset($hashtag)) {
+//
+//  }
+}
+
+/**
+ * Implements hook_views_api()
+ */
+
+function instagram_hashtag_views_api() {
+  return (array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'instagram_hashtag'),
+  ));
+}
+
+function instagram_hashtag_remove_emoji($text) {
+
+//    // Match Emoticons
+//    $regexEmoticons = '/[\x{1F600}-\x{1F64F}]/u';
+//    $clean_text = preg_replace($regexEmoticons, '', $text);
+//
+//    // Match Miscellaneous Symbols and Pictographs
+//    $regexSymbols = '/[\x{1F300}-\x{1F5FF}]/u';
+//    $clean_text = preg_replace($regexSymbols, '', $clean_text);
+//
+//    // Match Transport And Map Symbols
+//    $regexTransport = '/[\x{1F680}-\x{1F6FF}]/u';
+//    $clean_text = preg_replace($regexTransport, '', $clean_text);
+
+
+  // Ensure we don't let MB characters go into MySQL because that will ruin the query.
+  // @see https://drupal.org/comment/7917993#comment-7917993
+  $text = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', $text);
+
+
+  return $text;
+}
+
+function instagram_hashtag_field_info() {
+  return array(
+    // We name our field as the associative name of the array.
+    'instagram_hashtag' => array(
+      'label' => t('Instagram Hashtag'),
+      'description' => t('Instagram Hashtag to fetch photos.'),
+      'default_widget' => 'instagram_hashtag_text',
+      'default_formatter' => 'instagram_hashtag_gallery',
+    ),
+  );
+}
+
+
+function instagram_hashtag_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+  foreach ($items as $delta => $item) {
+//    if (!empty($item['rgb'])) {
+//      if (! preg_match('@^#[0-9a-f]{6}$@', $item['rgb'])) {
+//        $errors[$field['field_name']][$langcode][$delta][] = array(
+//          'error' => 'field_example_invalid',
+//          'message' => t('Color must be in the HTML format #abcdef.'),
+//        );
+//      }
+//    }
+  }
+}
+
+
+function instagram_hashtag_field_is_empty($item, $field) {
+  return empty($item['hashtag']);
+}
+
+function instagram_hashtag_field_formatter_info() {
+  return array(
+    // This formatter just displays the hex value in the color indicated.
+    'instagram_hashtag_gallery' => array(
+      'label' => t('Gallery'),
+      'field types' => array('instagram_hashtag'),
+    ),
+  );
+}
+
+
+function instagram_hashtag_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+
+  switch ($display['type']) {
+    // This formatter simply outputs the field as text and with a color.
+    case 'instagram_hashtag_gallery':
+      foreach ($items as $delta => $item) {
+        $hashtag = strtolower($item['hashtag']);
+        $result = db_select('instagram_hashtag', 'ih')
+          ->fields('ih')
+          ->condition('media_hashtag', $hashtag)
+          ->range(0,10)
+          ->execute()
+          ->fetchAllAssoc('id');
+
+        $output_array = array();
+
+        foreach ($result as $photo) {
+          $output_array[] = theme('image', array('path' => $photo->media_thumbnail));
+        }
+
+
+
+        $element[$delta] = array(
+          // We create a render array to produce the desired markup,
+          // "<p style="color: #hexcolor">The color code ... #hexcolor</p>".
+          // See theme_html_tag().
+          '#type' => 'html_tag',
+          '#tag' => 'p',
+          '#value' => theme('item_list', array('items' => $output_array)),
+        );
+      }
+      break;
+  }
+
+  return $element;
+}
+
+
+function instagram_hashtag_field_widget_info() {
+  return array(
+    'instagram_hashtag_text' => array(
+      'label' => t('Instagram Hashtag'),
+      'field types' => array('instagram_hashtag'),
+    ),
+  );
+}
+
+function instagram_hashtag_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $value = isset($items[$delta]['hashtag']) ? $items[$delta]['hashtag'] : '';
+
+  $widget = $element;
+  $widget['#delta'] = $delta;
+
+  switch ($instance['widget']['type']) {
+    case 'instagram_hashtag_text':
+      $widget += array(
+        '#type' => 'textfield',
+        '#default_value' => $value,
+      );
+      break;
+  }
+
+  $element['hashtag'] = $widget;
+  return $element;
+}

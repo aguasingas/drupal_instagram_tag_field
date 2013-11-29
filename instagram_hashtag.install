@@ -1,0 +1,26 @@
+<?php
+
+/**
+ * @file
+ * Install hooks for instagram_hashtag.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function instagram_hashtag_field_schema() {
+  $columns = array(
+    'hashtag' => array(
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE),
+  );
+  $indexes = array(
+    'hashtag' => array('hashtag'),
+  );
+  return array(
+    'columns' => $columns,
+    'indexes' => $indexes,
+  );
+}
+

@@ -1,0 +1,20 @@
+<?php
+
+function instagram_hashtag_field_schema($field) {
+  if($field['type'] == 'hashtag') {
+    $columns = array(
+      'hashtag' => array(
+        'type' => 'varchar',
+        'length' => 180,
+        'not null' => FALSE,
+      ),
+    );
+    $indexes = array(
+      'hashtag' => array('hashtag'),
+    );
+   return array(
+     'columns' => $columns,
+     'indexes' => $indexes,
+   );
+  }
+}

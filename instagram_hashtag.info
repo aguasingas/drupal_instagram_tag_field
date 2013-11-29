@@ -1,0 +1,8 @@
+name = Instagram Hashtag 
+description = Lists a feed with instagram images based on hashtag
+version = "1.0"
+core = 7.x
+package = Instagram Hashtag
+dependencies[] = views
+files[] = instagram_hashtag.views.inc
+files[] = includes/views_handler_field_instagram_hashtag_image.inc
