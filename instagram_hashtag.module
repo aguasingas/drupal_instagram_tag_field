@@ -119,81 +119,102 @@ function instagram_hashtag_fetch_feed() {
   $hashtags = get_hashtags();
 
   if (is_array($hashtags) && count($hashtags) > 0) {
+    $params = array();
+    //@fixme: I don't like this
+    $result = db_select('drupagram_account', 'insta')
+      ->fields('insta',array('drupagram_id'))
+      ->condition('import', 1)
+      ->orderBy('last_refresh')
+      ->execute()
+      ->fetchAssoc();
+
+    $id = $result['drupagram_id'];
+
+    $account = drupagram_account_load($id);
+
+    $drupagram = drupagram_connect($account);
+
     foreach ($hashtags as $hashtag) {
-
-      $result = drupal_http_request('http://instagram.com/tags/' . $hashtag . '/feed/recent.rss');
-
-      //Check HTTP return code
-      if ($result->code) {
-        switch ($result->code) {
-
-          // Valid HTTP Request
-          case 200:
-
-            $xml_object = simplexml_load_string($result->data);
-            $values = array();
-
-            foreach ($xml_object->channel->item as $items) {
-
-              $namespaces = $items->getNameSpaces( true );
-              $media = $items->children( $namespaces['media'] );
-              $media_description = pathinfo($media->content->attributes()->url);
-
-              $result = db_select('instagram_hashtag', 'ih')
-                ->fields('ih', array('media_description'))
-                ->condition('media_description', $media_description)
-                ->range(0, 1)
-                ->execute()
-                ->rowCount();
-
-              if ($result) {
-                continue;
-              }
-
-              $values[] = array(
-                'pub_date' => strtotime($items->pubDate),
-                'media_title' => instagram_hashtag_remove_emoji($media->title),
-                'media_hashtag' => $hashtag,
-                'media_description' => $media_description['filename'],
-                'media_content' => $media->content->attributes()->url,
-                'media_thumbnail' => $media->thumbnail->attributes()->url,
-                'media_credit' => $media->credit,
-
-              );
-
-            }
-
-
-            $query = db_insert('instagram_hashtag')->fields(array('pub_date', 'media_title', 'media_hashtag', 'media_description', 'media_content', 'media_thumbnail', 'media_credit'));
-
-            foreach ($values as $record) {
-              $query->values($record);
-            }
-
-            $query->execute();
-
-//            return TRUE;
-
-          default:
-
-            // Bad web connection
-            $watchdog_message = t('Error code: !code', array('!code' => $result->code)) . "\n";
-            $watchdog_message .= t('Error msg: !error', array('!error' => $result->error)) . "\n";
-            watchdog('instagram_hashtag', $watchdog_message, NULL, WATCHDOG_ERROR);
-
-            // TODO: Set this via drupal_set_message, ideally we could get rid of eventbrite_errors()
-            drupal_set_message($result->error);
-
-//            return false;
+      $result = $drupagram->tags_recent($hashtag, $params, TRUE);
+      if ($result) {
+        module_load_include('inc', 'drupagram');
+        foreach ($result as $media) {
+          drupagram_media_save($media);
         }
       }
     }
   }
-
-//  if (isset($hashtag)) {
-//
-//  }
 }
+
+//      $result = drupal_http_request('http://instagram.com/tags/' . $hashtag . '/feed/recent.rss');
+//
+//      //Check HTTP return code
+//      if ($result->code) {
+//        switch ($result->code) {
+//
+//          // Valid HTTP Request
+//          case 200:
+//
+//            $xml_object = simplexml_load_string($result->data);
+//            $values = array();
+//
+//            foreach ($xml_object->channel->item as $items) {
+//
+//              $namespaces = $items->getNameSpaces( true );
+//              $media = $items->children( $namespaces['media'] );
+//              $media_description = pathinfo($media->content->attributes()->url);
+//
+//              $result = db_select('instagram_hashtag', 'ih')
+//                ->fields('ih', array('media_description'))
+//                ->condition('media_description', $media_description)
+//                ->range(0, 1)
+//                ->execute()
+//                ->rowCount();
+//
+//              if ($result) {
+//                continue;
+//              }
+//
+//              $values[] = array(
+//                'pub_date' => strtotime($items->pubDate),
+//                'media_title' => instagram_hashtag_remove_emoji($media->title),
+//                'media_hashtag' => $hashtag,
+//                'media_description' => $media_description['filename'],
+//                'media_content' => $media->content->attributes()->url,
+//                'media_thumbnail' => $media->thumbnail->attributes()->url,
+//                'media_credit' => $media->credit,
+//
+//              );
+//
+//            }
+//
+//
+//            $query = db_insert('instagram_hashtag')->fields(array('pub_date', 'media_title', 'media_hashtag', 'media_description', 'media_content', 'media_thumbnail', 'media_credit'));
+//
+//            foreach ($values as $record) {
+//              $query->values($record);
+//            }
+//
+//            $query->execute();
+//
+////            return TRUE;
+//
+//          default:
+//
+//            // Bad web connection
+//            $watchdog_message = t('Error code: !code', array('!code' => $result->code)) . "\n";
+//            $watchdog_message .= t('Error msg: !error', array('!error' => $result->error)) . "\n";
+//            watchdog('instagram_hashtag', $watchdog_message, NULL, WATCHDOG_ERROR);
+//
+//            // TODO: Set this via drupal_set_message, ideally we could get rid of eventbrite_errors()
+//            drupal_set_message($result->error);
+//
+////            return false;
+//        }
+//      }
+//    }
+//  }
+//}
 
 /**
  * Implements hook_views_api()
