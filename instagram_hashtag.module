@@ -13,31 +13,6 @@
 function instagram_hashtag_menu() {
   $items = array();
 
-  $items['admin/config/services/instagram_hashtag'] = array(
-    'title' => 'Instagram hashtag feed',
-    'description' => 'Configure Instagram hashtag settings & objects',
-    'page callback' => 'drupal_get_form',
-    'type' => MENU_NORMAL_ITEM,
-    'page arguments' => array('instagram_hashtag_admin_settings'),
-    'access arguments' => array('administer site configuration'),
-    'file' => 'instagram_hashtag.admin.inc',
-  );
-
-  $items['admin/config/services/instagram_hashtag/settings'] = array(
-    'title' => 'Settings',
-    'type' => MENU_DEFAULT_LOCAL_TASK,
-    'weight' => -10
-  );
-
-  $items['admin/config/services/instagram_hashtag/view'] = array(
-    'title' => 'View instagram feed',
-    'page callback' => 'drupal_get_form',
-    'type' => MENU_LOCAL_TASK,
-    'page arguments' => array('instagram_hashtag_list_feed_form'),
-    'access arguments' => array('administer site configuration'),
-    'file' => 'instagram_hashtag.admin.inc',
-  );
-
   $items['test'] = array(
     'title' => 'test',
     'page callback' => 'instagram_hashtag_test',
