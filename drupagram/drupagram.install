@@ -276,6 +276,30 @@ function drupagram_schema() {
     'primary key' => array('drupagram_id'),
   );
 
+
+  $schema['drupagram_tags'] = array(
+    'description' => "Stores associations between photos and tags",
+    'fields' => array(
+      'tag' => array(
+        'description' => "Tag the photo is tagged with.",
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'drupagram_id' => array(
+        'description' => "Id for the photo",
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'default' => '',
+      ),
+    ),
+    'indexes' => array('tag' => array('tag')),
+  );
+
+
+
+
   return $schema;
 }
 
