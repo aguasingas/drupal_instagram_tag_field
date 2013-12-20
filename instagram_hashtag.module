@@ -27,7 +27,7 @@ function instagram_hashtag_menu() {
 }
 
 function instagram_hashtag_test() {
-  get_hashtags();
+  instagram_hashtag_fetch_feed();
 }
 
 function get_hashtags() {
@@ -74,20 +74,10 @@ function get_hashtags() {
   return $hashtags;
 }
 
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
-function instagram_hashtag_cron() { 
-  
+
+function instagram_hashtag_cron() {
   instagram_hashtag_fetch_feed();
-
 }
-
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
 
 function instagram_hashtag_fetch_feed() {
   
@@ -118,9 +108,13 @@ function instagram_hashtag_fetch_feed() {
           drupagram_media_save($media);
         }
       }
+      else {
+        return 'No results';
+      }
     }
   }
 }
+
 
 /**
  * Implements hook_views_api()

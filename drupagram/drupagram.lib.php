@@ -299,6 +299,9 @@ class Instagram {
 
 
   public function tags_recent($hashtag = NULL, $params = array(), $use_auth = TRUE) {
+    if (is_string($hashtag)){
+      $params['!tag'] = $hashtag;
+    }
     if (empty($id)) {
       $params['!user_id'] = 'self';
     }
@@ -316,7 +319,7 @@ class Instagram {
 //    'tags_recent' => 'v1/tags/%s/media/recent?max_id=%d&min_id=%d&access_token=!access_token',
 
 
-    return $this->fetch('user_recent', $params, $use_auth);
+    return $this->fetch('tags_recent', $params, $use_auth);
   }
 
   /**
