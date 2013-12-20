@@ -139,7 +139,7 @@ class Instagram {
     'post_like' => 'v1/media/%d/likes',
     'remove_like' => 'v1/media/%d/likes?access_token=!access_token',
     'tags' => 'v1/tags/%s?access_token=!access_token',
-    'tags_recent' => 'v1/tags/%s/media/recent?max_id=%d&min_id=%d&access_token=!access_token',
+    'tags_recent' => 'v1/tags/!tag/media/recent?max_id=!max_id&min_id=!min_id&access_token=!access_token',
     'tags_search' => 'v1/tags/search?q=%s&access_token=!access_token',
     'locations' => 'v1/locations/%d?access_token=!access_token',
     'locations_recent' => 'v1/locations/%d/media/recent/?max_id=%d&min_id=%d&max_timestamp=%d&min_timestamp=%d&access_token=!access_token',
@@ -293,6 +293,28 @@ class Instagram {
       $account = $this->user_lookup($username);
       $params['!user_id'] = $account->id;
     }
+
+    return $this->fetch('user_recent', $params, $use_auth);
+  }
+
+
+  public function tags_recent($hashtag = NULL, $params = array(), $use_auth = TRUE) {
+    if (empty($id)) {
+      $params['!user_id'] = 'self';
+    }
+    elseif (is_numeric($id)) {
+      $params['!user_id'] = $id;
+    }
+    else {
+      $username = $id;
+      // $params['username'] = $username;
+      $account = $this->user_lookup($username);
+      $params['!user_id'] = $account->id;
+    }
+
+//    'user_recent' => 'v1/users/!user_id/media/recent/?access_token=!access_token&max_id=!max_id&min_id=!min_id&max_timestamp=!max_timestamp&min_timestamp=!min_timestamp',
+//    'tags_recent' => 'v1/tags/%s/media/recent?max_id=%d&min_id=%d&access_token=!access_token',
+
 
     return $this->fetch('user_recent', $params, $use_auth);
   }
