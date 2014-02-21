@@ -115,6 +115,43 @@ function drupagram_media_save($media) {
 }
 
 /**
+ * Save relationship between Instagram media and a tag.
+ */
+function drupagram_media_tags_save($media, $hashtag = '') {
+  $tags = $media->tags;
+  // delete any tags that previously belonged to that image.
+  db_delete('drupagram_tags')->condition('drupagram_id', check_plain($media->id))->execute();
+  // Preparing insert query. We've deleted previous one, so no integrity errors should arise.
+  if (is_array($tags) && count($tags) > 0) {
+    // Defining insert query.
+    $db_insert = db_insert('drupagram_tags')
+      ->fields(array('drupagram_id', 'tag'));
+    // If there's a hashtag parameter, we'll only save that one.
+    if ($hashtag) {
+      $db_insert
+        ->values(array(
+          'drupagram_id' => $media->id,
+          'tag' => $hashtag,
+        ));
+    }
+    // If not, we'll save all of them.
+    else {
+      foreach ($tags as $current_tag) {
+        // One entry for every tag.
+        $db_insert
+          ->values(array(
+            'drupagram_id' => $media->id,
+            'tag' => $current_tag,
+          ));
+      }
+    }
+    // Executing query.
+    $db_insert->execute();
+
+  }
+}
+
+/**
  * Post a message to drupagram
  */
 function drupagram_set_status($drupagram_account, $status) {

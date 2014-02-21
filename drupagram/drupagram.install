@@ -294,7 +294,7 @@ function drupagram_schema() {
         'default' => '',
       ),
     ),
-    'indexes' => array('tag' => array('tag')),
+    'primary key' => array('tag', 'drupagram_id'),
   );
 
 

@@ -13,18 +13,30 @@
 function instagram_hashtag_menu() {
   $items = array();
 
-  $items['test'] = array(
-    'title' => 'test',
-    'page callback' => 'instagram_hashtag_test',
-    'type' => MENU_LOCAL_TASK,
-    'page arguments' => array('instagram_hashtag_list_feed_form'),
+  $items['admin/config/services/instagram_hashtag'] = array(
+    'title' => 'Instagram Hashtags settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('instagram_hashtag_form'),
+    'type' => MENU_NORMAL_ITEM,
     'access arguments' => array('administer site configuration'),
   );
 
-
-
   return $items;
 }
+
+function instagram_hashtag_form() {
+  $form = array();
+
+  $form['drupagram_save_all_tags'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Save all tags'),
+    '#description' => t('When saving an Instagram image, we\'ll save all tags for that image, or just the one we\'re using to search?'),
+    '#default_value' => variable_get('drupagram_save_all_tags', FALSE),
+  );
+
+  return system_settings_form($form);
+}
+
 
 function instagram_hashtag_test() {
   instagram_hashtag_fetch_feed();
@@ -104,8 +116,11 @@ function instagram_hashtag_fetch_feed() {
       if ($result) {
         module_load_include('inc', 'drupagram');
         foreach ($result as $media) {
-          //@todo: save tags, too.
           drupagram_media_save($media);
+          // Do we need to save all tags this photo has,
+          // or just the one we're using for searching?
+          $hashtag_parameter = variable_get('drupagram_save_all_tags', FALSE) ? '' : $hashtag;
+          drupagram_media_tags_save($media, $hashtag_parameter);
         }
       }
       else {
@@ -113,6 +128,20 @@ function instagram_hashtag_fetch_feed() {
       }
     }
   }
+}
+
+/**
+ * Implements hook_variable_info().
+ */
+function instagram_hashtag_variable_info($options) {
+  $variables = array();
+
+  $variable['drupagram_save_all_tags'] = array(
+    'title' => t('Drupagram: Save all tags'),
+  );
+
+  return $variable;
+
 }
 
 
@@ -128,19 +157,6 @@ function instagram_hashtag_views_api() {
 }
 
 function instagram_hashtag_remove_emoji($text) {
-
-//    // Match Emoticons
-//    $regexEmoticons = '/[\x{1F600}-\x{1F64F}]/u';
-//    $clean_text = preg_replace($regexEmoticons, '', $text);
-//
-//    // Match Miscellaneous Symbols and Pictographs
-//    $regexSymbols = '/[\x{1F300}-\x{1F5FF}]/u';
-//    $clean_text = preg_replace($regexSymbols, '', $clean_text);
-//
-//    // Match Transport And Map Symbols
-//    $regexTransport = '/[\x{1F680}-\x{1F6FF}]/u';
-//    $clean_text = preg_replace($regexTransport, '', $clean_text);
-
 
   // Ensure we don't let MB characters go into MySQL because that will ruin the query.
   // @see https://drupal.org/comment/7917993#comment-7917993
