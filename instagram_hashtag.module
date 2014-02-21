@@ -38,10 +38,6 @@ function instagram_hashtag_form() {
 }
 
 
-function instagram_hashtag_test() {
-  instagram_hashtag_fetch_feed();
-}
-
 function get_hashtags() {
   $instances = field_info_instances();
   $instagram_fields = array();
